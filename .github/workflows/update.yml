@@ -1,0 +1,57 @@
+name: 相場を収集して公開
+
+on:
+  schedule:
+    # 無料リポジトリでは予約実行が間引かれることがあるので1時間に2回指定（実質ほぼ毎時）
+    - cron: "13,43 * * * *"
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 相場データを収集
+        run: |
+          site="https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}"
+          mkdir -p _site
+          cp -r site/* _site/
+          python collector/collect.py --out _site --prev "$site" --regions "${REGIONS:-AS}"
+        env:
+          REGIONS: ${{ vars.REGIONS }}
+
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

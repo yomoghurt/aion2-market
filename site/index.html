@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#11141a">
+<title>AION2 相場ウォッチ</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+:root{
+  --bg:#f5f6f8;--panel:#fff;--ink:#16191f;--sub:#5d6573;--line:#e3e6eb;--chip:#eef0f4;
+  --up:#0f9d58;--down:#d93a3a;--accent:#3d6df2;--accentInk:#fff;--warn:#b7791f;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 2px 8px rgba(0,0,0,.04);
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0f1217;--panel:#171b22;--ink:#e8eaee;--sub:#97a0ae;--line:#262c36;--chip:#212732;
+  --up:#36c37a;--down:#ff6b6b;--accent:#6e93ff;--accentInk:#0b0e13;--warn:#e0a84a;--shadow:none;
+}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP","Yu Gothic UI",sans-serif;-webkit-text-size-adjust:100%}
+header{position:sticky;top:0;z-index:5;background:var(--bg);padding:calc(10px + env(safe-area-inset-top)) 16px 0}
+.top{display:flex;align-items:center;gap:10px}
+h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.02em;flex:1;white-space:nowrap}
+select,input{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:7px 10px;min-height:38px}
+select{max-width:52vw}
+.meta{font-size:12px;color:var(--sub);margin:6px 0 8px;display:flex;gap:8px;flex-wrap:wrap}
+.meta b{color:var(--ink);font-weight:600}
+.stale{color:var(--warn)}
+nav{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;scrollbar-width:none}
+nav::-webkit-scrollbar{display:none}
+nav button{flex:none;border:0;background:var(--chip);color:var(--ink);border-radius:999px;padding:8px 14px;font:inherit;font-size:14px;cursor:pointer}
+nav button[aria-selected=true]{background:var(--accent);color:var(--accentInk);font-weight:600}
+main{padding:0 16px calc(24px + env(safe-area-inset-bottom));max-width:760px;margin:0 auto}
+.note{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:13px;color:var(--sub);margin-bottom:10px}
+.note b{color:var(--ink)}
+.tools{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.tools input{flex:1 1 160px}
+.list{display:flex;flex-direction:column;gap:8px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:11px 12px;box-shadow:var(--shadow);display:grid;grid-template-columns:1fr auto;gap:2px 10px;cursor:pointer;text-align:left;width:100%;font:inherit;color:inherit}
+.card:active{transform:scale(.995)}
+.name{font-weight:600;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.cat{font-size:12px;color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.price{text-align:right;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.chg{text-align:right;font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.row3{grid-column:1/-1;display:flex;align-items:center;gap:8px;margin-top:4px;min-width:0}
+.why{font-size:12.5px;color:var(--sub);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chips{display:flex;gap:4px;flex-wrap:wrap;grid-column:1/-1;margin-top:4px}
+.chip{font-size:11.5px;background:var(--chip);border-radius:6px;padding:1px 7px;color:var(--sub)}
+.chip.u{color:var(--up)}.chip.d{color:var(--down)}
+.up{color:var(--up)}.down{color:var(--down)}.flat{color:var(--sub)}
+.score{font-size:12px;font-weight:700;border-radius:6px;padding:1px 6px;white-space:nowrap}
+.score.u{background:color-mix(in srgb,var(--up) 14%,transparent);color:var(--up)}
+.score.d{background:color-mix(in srgb,var(--down) 14%,transparent);color:var(--down)}
+svg.sp{width:84px;height:26px;flex:none}
+.empty{text-align:center;color:var(--sub);padding:40px 10px}
+.more{display:block;margin:10px auto 0;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:10px;padding:8px 18px;font:inherit}
+.star{border:0;background:none;font-size:20px;line-height:1;color:var(--sub);cursor:pointer;padding:4px}
+.star.on{color:#f2b01e}
+/* 詳細 */
+dialog{border:0;padding:0;margin:0;width:100%;max-width:760px;height:100%;max-height:100%;background:var(--bg);color:var(--ink)}
+@media (min-width:780px){dialog{margin:auto;height:auto;max-height:92vh;border-radius:16px;border:1px solid var(--line)}}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+.dh{position:sticky;top:0;background:var(--bg);display:flex;align-items:center;gap:8px;padding:calc(10px + env(safe-area-inset-top)) 12px 8px;border-bottom:1px solid var(--line);z-index:2}
+.dh h2{font-size:17px;margin:0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.x{border:0;background:var(--chip);color:var(--ink);border-radius:999px;width:36px;height:36px;font-size:18px;cursor:pointer}
+.db{padding:12px 16px calc(24px + env(safe-area-inset-bottom))}
+.big{font-size:28px;font-weight:800;font-variant-numeric:tabular-nums}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:12px 0}
+@media (min-width:520px){.grid{grid-template-columns:repeat(4,1fr)}}
+.kv{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 10px}
+.kv span{display:block;font-size:11.5px;color:var(--sub)}
+.kv b{font-variant-numeric:tabular-nums;font-size:15px}
+.seg{display:inline-flex;background:var(--chip);border-radius:10px;padding:3px;gap:2px;margin:6px 0}
+.seg button{border:0;background:none;color:var(--sub);border-radius:8px;padding:5px 12px;font:inherit;font-size:13px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--panel);color:var(--ink);font-weight:600;box-shadow:var(--shadow)}
+.chart{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px 6px 4px}
+.chart svg{width:100%;height:auto;display:block}
+.reasons{margin:12px 0;padding-left:18px}
+.reasons li{margin:3px 0}
+a.ext{color:var(--accent)}
+footer{font-size:12px;color:var(--sub);text-align:center;padding:16px}
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <h1>AION2 相場ウォッチ</h1>
+    <select id="server" aria-label="サーバー"></select>
+  </div>
+  <div class="meta" id="meta">読み込み中…</div>
+  <nav role="tablist" id="tabs">
+    <button role="tab" data-tab="up">📈 上がりそう</button>
+    <button role="tab" data-tab="down">📉 下がりそう</button>
+    <button role="tab" data-tab="move">⚡ 24h変動</button>
+    <button role="tab" data-tab="all">🔎 検索</button>
+    <button role="tab" data-tab="fav">★ お気に入り</button>
+  </nav>
+</header>
+<main>
+  <div id="note"></div>
+  <div class="tools" id="tools" hidden>
+    <input id="q" type="search" placeholder="アイテム名で検索" autocomplete="off">
+    <select id="cat" aria-label="カテゴリ"><option value="">すべてのカテゴリ</option></select>
+    <select id="sort" aria-label="並び順">
+      <option value="sc">上がりそう順</option><option value="-sc">下がりそう順</option>
+      <option value="ch24">24h上昇率</option><option value="-ch24">24h下落率</option>
+      <option value="ch7">7日上昇率</option><option value="us">よく売れる順</option>
+      <option value="p">価格が高い順</option>
+    </select>
+  </div>
+  <div class="list" id="list"></div>
+  <button class="more" id="more" hidden>もっと見る</button>
+</main>
+<footer>
+  データ元：<a class="ext" href="https://aion2.exchange" target="_blank" rel="noopener">aion2.exchange</a>（非公式・最安出品価格）／日本語名：NC公式サイト。<br>
+  予測は過去の値動きと出品数からの目安で、利益を保証するものではありません。NCSOFTとは無関係です。
+</footer>
+
+<dialog id="dlg">
+  <div class="dh"><button class="star" id="dstar" aria-label="お気に入り">☆</button><h2 id="dtitle"></h2><button class="x" id="dclose" aria-label="閉じる">✕</button></div>
+  <div class="db" id="dbody"></div>
+</dialog>
+
+<script>
+"use strict";
+const $ = (s) => document.querySelector(s);
+const st = { idx: null, sum: null, names: {}, tab: "up", limit: 40, server: null, range: 7 };
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+let favs = new Set(store.get("favs", []));
+
+const FACTION = { Elyos: "天族", Asmodian: "魔族" };
+const yen = (n) => n == null ? "—" : Math.round(n).toLocaleString("ja-JP");
+const compact = (n) => {
+  if (n == null) return "—";
+  if (n >= 1e8) return (n / 1e8).toFixed(n >= 1e9 ? 1 : 2).replace(/\.?0+$/, "") + "億";
+  if (n >= 1e4) return (n / 1e4).toFixed(n >= 1e6 ? 0 : 1).replace(/\.0$/, "") + "万";
+  return yen(n);
+};
+const pct = (x, d = 1) => x == null ? "—" : (x > 0 ? "+" : x < 0 ? "−" : "±") + Math.abs(x * 100).toFixed(d) + "%";
+const cls = (x) => x == null || Math.abs(x) < 0.005 ? "flat" : x > 0 ? "up" : "down";
+const arrow = (x) => x == null || Math.abs(x) < 0.005 ? "" : x > 0 ? "▲" : "▼";
+const nm = (it) => (st.names[it.k] && st.names[it.k][0]) || it.en || ("#" + it.k);
+const ago = (iso) => {
+  if (!iso) return "—";
+  const m = Math.round((Date.now() - new Date(iso)) / 60000);
+  return m < 1 ? "たった今" : m < 60 ? m + "分前" : m < 1440 ? Math.floor(m / 60) + "時間前" : Math.floor(m / 1440) + "日前";
+};
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+
+async function getJSON(path) {
+  const r = await fetch(path + (path.includes("?") ? "&" : "?") + "t=" + Math.floor(Date.now() / 300000), { cache: "no-cache" });
+  if (!r.ok) throw new Error(path + " " + r.status);
+  return r.json();
+}
+
+function sparkSVG(sp, w = 84, h = 26) {
+  const v = (sp || []).filter((x) => x != null);
+  if (v.length < 2) return "";
+  const mn = Math.min(...v), mx = Math.max(...v), rng = mx - mn || 1;
+  const pts = [];
+  sp.forEach((x, i) => { if (x != null) pts.push([(i / (sp.length - 1)) * (w - 2) + 1, h - 2 - ((x - mn) / rng) * (h - 4)]); });
+  const c = v[v.length - 1] >= v[0] ? "var(--up)" : "var(--down)";
+  return `<svg class="sp" viewBox="0 0 ${w} ${h}" aria-hidden="true"><polyline fill="none" stroke="${c}" stroke-width="1.6" stroke-linejoin="round" points="${pts.map((p) => p.map((n) => n.toFixed(1)).join(",")).join(" ")}"/></svg>`;
+}
+
+function card(it) {
+  const sc = it.sc;
+  const badge = sc == null || Math.abs(sc) < st.sum.thresh ? "" :
+    `<span class="score ${sc > 0 ? "u" : "d"}">${sc > 0 ? "上がりそう" : "下がりそう"} ${Math.round(Math.abs(sc) * 100)}</span>`;
+  const chips = (it.tags || []).map((t) => `<span class="chip ${/上昇|減少|割安/.test(t) ? "u" : /下落|増加|割高/.test(t) ? "d" : ""}">${esc(t)}</span>`).join("");
+  return `<button class="card" data-k="${it.k}">
+    <div class="name">${favs.has(it.k) ? "★ " : ""}${esc(nm(it))}</div>
+    <div class="price">${compact(it.p)}</div>
+    <div class="cat">${esc(it.cat || "")}${it.l != null ? "・出品" + it.l : ""}${it.us ? "・24h販売" + it.us : ""}</div>
+    <div class="chg ${cls(it.ch24)}">${arrow(it.ch24)}${pct(it.ch24)} <span class="flat">24h</span></div>
+    <div class="row3">${badge}<span class="why">${esc((it.why || [])[0] || "")}</span>${sparkSVG(it.sp)}</div>
+    ${chips ? `<div class="chips">${chips}</div>` : ""}
+  </button>`;
+}
+
+function rows() {
+  const items = st.sum.items, th = st.sum.thresh;
+  const has = (it) => it.p != null && it.p > 0;
+  switch (st.tab) {
+    case "up": return items.filter((i) => has(i) && i.sc >= th).sort((a, b) => b.sc - a.sc);
+    case "down": return items.filter((i) => has(i) && i.sc <= -th).sort((a, b) => a.sc - b.sc);
+    case "move": return items.filter((i) => has(i) && i.ch24 != null && (i.l ?? 0) >= 2).sort((a, b) => Math.abs(b.ch24) - Math.abs(a.ch24));
+    case "fav": return items.filter((i) => favs.has(i.k));
+    default: {
+      const q = $("#q").value.trim().toLowerCase(), c = $("#cat").value, s = $("#sort").value;
+      const neg = s.startsWith("-"), key = s.replace("-", "");
+      return items.filter((i) => has(i) && (!c || i.cat === c) && (!q || nm(i).toLowerCase().includes(q) || (i.en || "").toLowerCase().includes(q)))
+        .sort((a, b) => {
+          const av = a[key] ?? (neg ? Infinity : -Infinity), bv = b[key] ?? (neg ? Infinity : -Infinity);
+          return neg ? av - bv : bv - av;
+        });
+    }
+  }
+}
+
+const NOTES = {
+  up: "直近の<b>上昇トレンド</b>・<b>出品数の減少</b>・<b>7日相場より割安</b>を組み合わせた点数が高い順です。数字は確信度（0〜100）。",
+  down: "直近の<b>下落トレンド</b>・<b>出品数の増加</b>・<b>7日相場より割高</b>を組み合わせた点数が高い順。持っているなら売り時の候補です。",
+  move: "この24時間で値動きが大きかった順（出品2件以上）。",
+  all: "",
+  fav: "☆を押したアイテムがここに並びます（この端末に保存）。",
+};
+
+function render() {
+  if (!st.sum) return;
+  $("#tools").hidden = st.tab !== "all";
+  const bt = st.sum.backtest || {};
+  let note = NOTES[st.tab] || "";
+  if ((st.tab === "up" || st.tab === "down") && bt.hit_rate != null) {
+    note += `<br>過去${Math.round(bt.n).toLocaleString()}回の判定で、24時間後に予想どおりの向きへ動いた割合 <b>${Math.round(bt.hit_rate * 100)}%</b>（50%なら当てずっぽうと同じ）。`;
+  }
+  $("#note").innerHTML = note ? `<div class="note">${note}</div>` : "";
+  const r = rows();
+  $("#list").innerHTML = r.length ? r.slice(0, st.limit).map(card).join("") :
+    `<div class="empty">${st.tab === "fav" ? "まだお気に入りがありません" : "該当するアイテムがありません"}</div>`;
+  $("#more").hidden = r.length <= st.limit;
+}
+
+function setTab(t) {
+  st.tab = t; st.limit = 40;
+  document.querySelectorAll("#tabs button").forEach((b) => b.setAttribute("aria-selected", b.dataset.tab === t));
+  store.set("tab", t);
+  render();
+  window.scrollTo({ top: 0 });
+}
+
+async function loadServer(sid) {
+  st.server = sid; store.set("server", sid);
+  $("#list").innerHTML = `<div class="empty">読み込み中…</div>`;
+  try {
+    st.sum = await getJSON(`data/s/${sid}/summary.json`);
+  } catch (e) {
+    $("#list").innerHTML = `<div class="empty">データを読めませんでした（${esc(e.message)}）</div>`;
+    return;
+  }
+  const s = (st.idx.servers || []).find((x) => x.server_id == sid) || {};
+  $("#meta").innerHTML = `相場：<b>${ago(st.sum.captured_at)}</b><span>・${st.sum.items.length}品目</span>${s.stale ? '<span class="stale">・取得失敗のため前回データ</span>' : ""}`;
+  const cats = [...new Set(st.sum.items.map((i) => i.cat).filter(Boolean))].sort();
+  $("#cat").innerHTML = `<option value="">すべてのカテゴリ</option>` + cats.map((c) => `<option>${esc(c)}</option>`).join("");
+  render();
+}
+
+// ── 詳細 ──
+function chartSVG(p, l, h0) {
+  const n = Math.min(p.length, st.range * 24), P = p.slice(-n), L = (l || []).slice(-n);
+  const W = 380, H = 230, padL = 46, padR = 6, padT = 10, padB = 58, LH = 34;
+  const v = P.filter((x) => x != null);
+  if (v.length < 2) return `<div class="empty">履歴がまだ足りません</div>`;
+  let mn = Math.min(...v), mx = Math.max(...v);
+  const pad = (mx - mn) * 0.08 || mx * 0.05; mn -= pad; mx += pad;
+  const x = (i) => padL + (i / (n - 1)) * (W - padL - padR);
+  const y = (val) => padT + (1 - (val - mn) / (mx - mn)) * (H - padT - padB);
+  let d = "", pen = false;
+  P.forEach((val, i) => { if (val == null) { pen = false; return; } d += (pen ? "L" : "M") + x(i).toFixed(1) + "," + y(val).toFixed(1); pen = true; });
+  const ticks = [0, 0.5, 1].map((t) => mn + (mx - mn) * t);
+  const lmax = Math.max(1, ...L.filter((q) => q != null));
+  const bw = Math.max(1, (W - padL - padR) / n - 0.5);
+  const bars = L.map((q, i) => q == null ? "" : `<rect x="${(x(i) - bw / 2).toFixed(1)}" y="${(H - 20 - (q / lmax) * LH).toFixed(1)}" width="${bw.toFixed(1)}" height="${((q / lmax) * LH).toFixed(1)}" fill="var(--line)"/>`).join("");
+  const start = (h0 + p.length - n) * 3600e3;
+  const days = [];
+  for (let i = 0; i < n; i++) {
+    const t = new Date(start + i * 3600e3);
+    if (t.getHours() === 0) days.push(i);
+  }
+  const step = Math.ceil(days.length / 7) || 1;
+  const dl = days.filter((_, j) => j % step === 0).map((i) => {
+    const t = new Date(start + i * 3600e3);
+    return `<line x1="${x(i)}" x2="${x(i)}" y1="${padT}" y2="${H - 20}" stroke="var(--line)" stroke-dasharray="2 3"/><text x="${x(i)}" y="${H - 4}" font-size="12" fill="var(--sub)" text-anchor="middle">${t.getMonth() + 1}/${t.getDate()}</text>`;
+  }).join("");
+  const c = v[v.length - 1] >= v[0] ? "var(--up)" : "var(--down)";
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="価格の推移">
+    ${dl}${bars}
+    ${ticks.map((t) => `<text x="${padL - 6}" y="${y(t) + 4}" font-size="12" fill="var(--sub)" text-anchor="end">${compact(t)}</text>`).join("")}
+    <path d="${d}" fill="none" stroke="${c}" stroke-width="2" stroke-linejoin="round"/>
+    <text x="${W - padR}" y="${H - 22 - LH}" font-size="11" fill="var(--sub)" text-anchor="end">灰色＝出品数</text>
+  </svg>`;
+}
+
+async function openItem(k) {
+  const it = st.sum.items.find((i) => i.k == k);
+  if (!it) return;
+  $("#dtitle").textContent = nm(it);
+  const star = $("#dstar");
+  const paint = () => { star.textContent = favs.has(it.k) ? "★" : "☆"; star.classList.toggle("on", favs.has(it.k)); };
+  paint();
+  star.onclick = () => { favs.has(it.k) ? favs.delete(it.k) : favs.add(it.k); store.set("favs", [...favs]); paint(); render(); };
+  const sc = it.sc;
+  const verdict = sc == null ? "履歴が少なく判定できません" :
+    Math.abs(sc) < st.sum.thresh ? "はっきりした傾向なし" : (sc > 0 ? "上がりそう" : "下がりそう") + `（確信度 ${Math.round(Math.abs(sc) * 100)}）`;
+  $("#dbody").innerHTML = `
+    <div class="cat">${esc(it.cat || "")}${it.en && st.names[it.k] ? "・" + esc(it.en) : ""}</div>
+    <div class="big">${yen(it.p)} <span class="chg ${cls(it.ch24)}" style="font-size:15px">${arrow(it.ch24)}${pct(it.ch24)}</span></div>
+    <div><span class="score ${sc > 0 ? "u" : "d"}" style="${sc == null || Math.abs(sc) < st.sum.thresh ? "background:var(--chip);color:var(--sub)" : ""}">${verdict}</span></div>
+    ${(it.why || []).length ? `<ul class="reasons">${it.why.map((w) => `<li>${esc(w)}</li>`).join("")}</ul>` : ""}
+    <div class="seg" role="group" aria-label="期間">${[3, 7, 14, 30].map((d) => `<button data-r="${d}" aria-pressed="${st.range === d}">${d}日</button>`).join("")}</div>
+    <div class="chart" id="chart"><div class="empty">読み込み中…</div></div>
+    <div class="grid">
+      <div class="kv"><span>7日の中央値</span><b>${yen(it.med7)}</b></div>
+      <div class="kv"><span>7日変化</span><b class="${cls(it.ch7)}">${pct(it.ch7)}</b></div>
+      <div class="kv"><span>出品数</span><b>${it.l ?? "—"}</b></div>
+      <div class="kv"><span>24h販売数</span><b>${it.us ?? "—"}</b></div>
+      <div class="kv"><span>販売平均価格</span><b>${yen(it.sa)}</b></div>
+      <div class="kv"><span>3日トレンド/日</span><b class="${cls(it.slope)}">${pct(it.slope)}</b></div>
+      <div class="kv"><span>出品数の増減</span><b class="${cls(it.lt == null ? null : -it.lt)}">${pct(it.lt, 0)}</b></div>
+      <div class="kv"><span>手取り（手数料8%）</span><b>${yen(it.p * 0.92)}</b></div>
+    </div>
+    <a class="ext" href="https://aion2.exchange/items/${it.k}" target="_blank" rel="noopener">aion2.exchange で見る ↗</a>`;
+  $("#dlg").showModal();
+  let detail;
+  try { detail = await getJSON(`data/s/${st.server}/i/${it.k}.json`); }
+  catch { $("#chart").innerHTML = `<div class="empty">履歴を読めませんでした</div>`; return; }
+  const draw = () => { $("#chart").innerHTML = chartSVG(detail.p, detail.l, detail.h0); };
+  draw();
+  $("#dbody").querySelectorAll(".seg button").forEach((b) => b.onclick = () => {
+    st.range = +b.dataset.r; store.set("range", st.range);
+    $("#dbody").querySelectorAll(".seg button").forEach((x) => x.setAttribute("aria-pressed", x === b));
+    draw();
+  });
+}
+
+// ── 起動 ──
+async function boot() {
+  st.range = store.get("range", 7);
+  try {
+    [st.idx, st.names] = await Promise.all([getJSON("data/index.json"), getJSON("data/names.json").catch(() => ({}))]);
+  } catch (e) {
+    $("#meta").textContent = "まだデータがありません。最初の自動収集が終わるまでお待ちください。";
+    $("#list").innerHTML = "";
+    return;
+  }
+  const sv = st.idx.servers || [];
+  $("#server").innerHTML = sv.map((s) => `<option value="${s.server_id}">${esc(s.name)}・${FACTION[s.faction] || esc(s.faction || "")}</option>`).join("");
+  const saved = store.get("server", null);
+  const sid = sv.some((s) => s.server_id == saved) ? saved : sv[0] && sv[0].server_id;
+  if (sid == null) { $("#meta").textContent = "対象サーバーがありません"; return; }
+  $("#server").value = sid;
+  const t = store.get("tab", "up");
+  document.querySelectorAll("#tabs button").forEach((b) => b.setAttribute("aria-selected", b.dataset.tab === t));
+  st.tab = t;
+  await loadServer(sid);
+}
+
+$("#tabs").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) setTab(b.dataset.tab); });
+$("#server").addEventListener("change", (e) => loadServer(e.target.value));
+$("#list").addEventListener("click", (e) => { const c = e.target.closest(".card"); if (c) openItem(c.dataset.k); });
+$("#more").addEventListener("click", () => { st.limit += 40; render(); });
+["#q", "#cat", "#sort"].forEach((s) => $(s).addEventListener("input", () => { st.limit = 40; render(); }));
+$("#dclose").addEventListener("click", () => $("#dlg").close());
+$("#dlg").addEventListener("click", (e) => { if (e.target === $("#dlg")) $("#dlg").close(); });
+document.addEventListener("visibilitychange", () => { if (!document.hidden && st.server && st.sum && Date.now() - new Date(st.sum.generated_at) > 50 * 60e3) loadServer(st.server); });
+boot();
+</script>
+</body>
+</html>
