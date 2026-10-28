@@ -37,7 +37,7 @@ PAGE = 200            # /api/items の limit 上限
 KEEP_DAYS = 30        # 保持する履歴
 BACKFILL_DAYS = 14    # 履歴が薄いアイテムを過去分で埋める日数
 BACKFILL_MAX = 1500   # 1回の実行で過去分を取りに行く最大件数（残りは次回）
-NAMES_MAX = 700       # 1回の実行で日本語名を取りに行く最大件数
+NAMES_MAX = 1000      # 1回の実行で日本語名を取りに行く最大件数
 DATA_VERSION = 1
 
 # ── 通信 ───────────────────────────────────────────────────────────────────
@@ -499,6 +499,15 @@ def main() -> int:
 
     keys = sorted({str(i["k"]) for d in done if not d.get("stale")
                    for i in json.loads((out / "data" / "s" / str(d["server_id"]) / "summary.json").read_text())["items"]})
+    # クラフトの素材・製品の名前も取る（相場に出ている品を先に。残りは次回以降）
+    rp = out / "recipes.json"
+    if rp.exists():
+        try:
+            rkeys = json.loads(rp.read_text()).get("names") or {}
+            have = set(keys)
+            keys += sorted(k for k in rkeys if k not in have)
+        except (OSError, json.JSONDecodeError) as e:
+            print(f"recipes.json: {e}", file=sys.stderr)
     got = fetch_names(keys, names, NAMES_MAX)
     print(f"日本語名: {got}件追加（計{len(names)}件）")
     (out / "data" / "names.json").write_text(json.dumps(names, ensure_ascii=False, separators=(",", ":")))

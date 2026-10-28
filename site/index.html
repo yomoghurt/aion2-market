@@ -82,6 +82,34 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
 .reasons{margin:12px 0;padding-left:18px}
 .reasons li{margin:3px 0}
 a.ext{color:var(--accent)}
+/* クラフト */
+.settings{background:var(--panel);border:1px solid var(--line);border-radius:12px;margin-bottom:10px}
+.settings summary{padding:9px 12px;cursor:pointer;font-size:14px;font-weight:600;list-style:none}
+.settings summary::-webkit-details-marker{display:none}
+.settings summary::before{content:"⚙ ";color:var(--sub)}
+.settings summary span{font-weight:400;font-size:12px;color:var(--sub);margin-left:4px}
+.setgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 12px 12px}
+@media (max-width:420px){.setgrid{grid-template-columns:1fr}}
+.setgrid label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--sub)}
+.setgrid label.chk{flex-direction:row;align-items:center;gap:8px;grid-column:1/-1;font-size:13px;color:var(--ink)}
+.setgrid input[type=number]{width:5.5em}
+.inl{display:flex;align-items:center;gap:6px;color:var(--ink)}
+.chk input{width:20px;height:20px;margin:0}
+.profit{text-align:right;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+.flow{font-size:12.5px;color:var(--sub);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-variant-numeric:tabular-nums}
+table.mats{width:100%;border-collapse:collapse;font-size:13.5px;font-variant-numeric:tabular-nums;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.mats th,.mats td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:right;vertical-align:top}
+.mats th{font-size:11.5px;color:var(--sub);font-weight:600;background:var(--chip);white-space:nowrap}
+.mats th:first-child,.mats td:first-child{text-align:left}
+.mats tr:last-child td{border-bottom:0}
+.mats tfoot td{font-weight:700}
+.mats .src{display:block;font-size:11px;color:var(--sub);font-weight:400}
+.mats .src.self{color:var(--accent)}
+.mats .miss{color:var(--warn)}
+.linkish{border:0;background:none;padding:0;font:inherit;color:inherit;text-align:left;cursor:pointer;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
+.h3{font-size:14px;font-weight:700;margin:16px 0 6px}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:10px;padding:8px 14px;font:inherit;font-size:14px;cursor:pointer}
 footer{font-size:12px;color:var(--sub);text-align:center;padding:16px}
 </style>
 </head>
@@ -96,6 +124,7 @@ footer{font-size:12px;color:var(--sub);text-align:center;padding:16px}
     <button role="tab" data-tab="up">📈 上がりそう</button>
     <button role="tab" data-tab="down">📉 下がりそう</button>
     <button role="tab" data-tab="move">⚡ 24h変動</button>
+    <button role="tab" data-tab="craft">🔨 クラフト利益</button>
     <button role="tab" data-tab="all">🔎 検索</button>
     <button role="tab" data-tab="fav">★ お気に入り</button>
   </nav>
@@ -112,11 +141,41 @@ footer{font-size:12px;color:var(--sub);text-align:center;padding:16px}
       <option value="p">価格が高い順</option>
     </select>
   </div>
+  <div id="ctools" hidden>
+    <div class="tools">
+      <input id="cq" type="search" placeholder="製品・素材の名前で検索" autocomplete="off">
+      <select id="ccat" aria-label="系統">
+        <option value="">すべての系統</option>
+        <option value="Blacksmithing">鍛冶</option><option value="Tailoring">裁縫</option>
+        <option value="Jewelcrafting">細工</option><option value="Alchemy">錬金</option><option value="Cooking">料理</option>
+      </select>
+      <select id="csort" aria-label="並び順">
+        <option value="margin">利益率が高い順</option>
+        <option value="profit">1回あたり利益が多い順</option>
+        <option value="volume">売れ筋順（利益×24h販売数）</option>
+      </select>
+    </div>
+    <details class="settings" id="cset">
+      <summary>計算の設定 <span id="csetsum"></span></summary>
+      <div class="setgrid">
+        <label>成功率
+          <span class="inl"><input id="csucc" type="number" min="1" max="100" step="1" inputmode="numeric">%</span>
+        </label>
+        <label>価格の基準
+          <select id="cbasis"><option value="now">現在の最安出品</option><option value="med">7日の中央値（安定）</option></select>
+        </label>
+        <label>素材の調達
+          <select id="cmode"><option value="best">購入か自作の安い方</option><option value="buy">すべて購入</option></select>
+        </label>
+        <label class="chk"><input id="cmiss" type="checkbox"> 価格不明の素材がある品も表示</label>
+      </div>
+    </details>
+  </div>
   <div class="list" id="list"></div>
   <button class="more" id="more" hidden>もっと見る</button>
 </main>
 <footer>
-  データ元：<a class="ext" href="https://aion2.exchange" target="_blank" rel="noopener">aion2.exchange</a>（非公式・最安出品価格）／日本語名：NC公式サイト。<br>
+  データ元：<a class="ext" href="https://aion2.exchange" target="_blank" rel="noopener">aion2.exchange</a>（非公式・最安出品価格）／日本語名：NC公式サイト／レシピ：<a class="ext" href="https://github.com/dimkk/aion2-market-stack" target="_blank" rel="noopener">aion2-market-stack</a>（Apache-2.0）。<br>
   予測は過去の値動きと出品数からの目安で、利益を保証するものではありません。NCSOFTとは無関係です。
 </footer>
 
@@ -216,6 +275,8 @@ const NOTES = {
 function render() {
   if (!st.sum) return;
   $("#tools").hidden = st.tab !== "all";
+  $("#ctools").hidden = st.tab !== "craft";
+  if (st.tab === "craft") return renderCraft();
   const bt = st.sum.backtest || {};
   let note = NOTES[st.tab] || "";
   if ((st.tab === "up" || st.tab === "down") && bt.hit_rate != null) {
@@ -251,6 +312,203 @@ async function loadServer(sid) {
   $("#cat").innerHTML = `<option value="">すべてのカテゴリ</option>` + cats.map((c) => `<option>${esc(c)}</option>`).join("");
   render();
 }
+
+// ── クラフト利益 ──
+const CAT = { Blacksmithing: "鍛冶", Tailoring: "裁縫", Jewelcrafting: "細工", Alchemy: "錬金", Cooking: "料理" };
+const SUB = { Weapon: "武器", Armor: "防具", Accessory: "アクセサリー", Usable: "消耗品", Misc: "その他" };
+const FEE = 0.08; // 取引所の販売手数料
+const cs = Object.assign({ succ: 95, basis: "now", mode: "best", miss: false, custom: {} }, store.get("craft", {}));
+let craftCache = null;
+
+const nmId = (id) => (st.names[id] && st.names[id][0]) || (st.recipes && st.recipes.names[id]) || ("#" + id);
+const sign = (n) => (n >= 0 ? "+" : "−") + compact(Math.abs(n));
+
+function factionLetter() {
+  const s = (st.idx.servers || []).find((x) => x.server_id == st.server) || {};
+  return s.faction === "Asmodian" ? "D" : "L";
+}
+
+/** 現在のサーバー・設定で全レシピの原価と利益を計算する。 */
+function craftRows() {
+  const key = [st.server, cs.succ, cs.basis, cs.mode, JSON.stringify(cs.custom || {})].join("|");
+  if (craftCache && craftCache.key === key && craftCache.sum === st.sum) return craftCache.rows;
+  const R = st.recipes;
+  if (!R) return [];
+  const fac = factionLetter();
+  const byItem = new Map(st.sum.items.map((i) => [i.k, i]));
+  const price = (id) => {
+    const it = byItem.get(id);
+    if (!it || !(it.p > 0)) {
+      const v = +(cs.custom || {})[id];
+      return v > 0 ? v : null; // 取引所に無い素材は自分で入れた価格（NPC販売品など）
+    }
+    if (cs.basis === "med" && it.med7 > 0) return it.med7;
+    // 1件だけの極端に高い出品で利益が水増しされないよう、7日中央値の2.5倍を上限にする
+    return it.med7 > 0 && it.p > it.med7 * 2.5 ? it.med7 : it.p;
+  };
+  const s = Math.min(1, Math.max(0.01, (+cs.succ || 100) / 100));
+  const recs = R.r.filter((r) => r[3] === fac || r[3] === "A");
+  const producers = new Map();
+  for (const r of recs) { const a = producers.get(r[8]) || []; a.push(r); producers.set(r[8], a); }
+
+  // 素材1個の調達コスト：買う／作る（さらに下の素材も同じ判断）の安い方。循環は辿らない
+  const memo = new Map();
+  function unit(id, stack) {
+    if (!stack.size && memo.has(id)) return memo.get(id);
+    const buy = price(id);
+    let best = buy == null ? null : { cost: buy, how: "buy" };
+    if (cs.mode === "best" && !stack.has(id) && stack.size < 6) {
+      stack.add(id);
+      for (const r of producers.get(id) || []) {
+        let c = 0, ok = true;
+        for (const [m, q] of r[10]) { const u = unit(m, stack); if (!u) { ok = false; break; } c += q * u.cost; }
+        if (!ok) continue;
+        const per = c / (s * r[9]);
+        if (!best || per < best.cost - 0.5) best = { cost: per, how: "craft", rid: r[0] };
+      }
+      stack.delete(id);
+    }
+    if (!stack.size) memo.set(id, best);
+    return best;
+  }
+
+  const rows = [];
+  for (const r of recs) {
+    const [rid, cat, sub, , lvl, learn, combo, comboOut, out, q, mats, kind] = r;
+    const P = price(out);
+    if (P == null) continue; // 取引所に出ていない製品は売値が分からない
+    const c = comboOut != null ? combo : 0;
+    const Pc = comboOut != null ? (price(comboOut) ?? P) : P;
+    let cost = 0, miss = 0, self = 0;
+    const lines = mats.map(([m, n]) => {
+      const u = unit(m, new Set());
+      if (!u) { miss++; return { id: m, n, u: null }; }
+      cost += n * u.cost;
+      if (u.how === "craft") self++;
+      return { id: m, n, u };
+    });
+    const rev = s * q * ((1 - c) * P + c * Pc) * (1 - FEE);
+    const profit = rev - cost;
+    const it = byItem.get(out);
+    rows.push({
+      rid, cat, sub, lvl, learn, kind, combo: c, comboOut, comboPriced: comboOut != null && price(comboOut) != null,
+      out, q, P, Pc, cost, rev, profit, margin: cost > 0 ? profit / cost : null,
+      miss, self, lines, us: (it && it.us) || 0, s,
+    });
+  }
+  craftCache = { key, sum: st.sum, rows };
+  return rows;
+}
+
+function craftCard(x) {
+  const chips = [];
+  if (x.combo) chips.push(`<span class="chip u">コンボ${Math.round(x.combo * 100)}%</span>`);
+  if (x.self) chips.push(`<span class="chip">素材${x.self}種を自作</span>`);
+  if (x.miss) chips.push(`<span class="chip d">価格不明の素材${x.miss}種</span>`);
+  if (x.kind === "S") chips.push(`<span class="chip">継承</span>`);
+  return `<button class="card" data-r="${x.rid}">
+    <div class="name">${esc(nmId(x.out))}${x.q > 1 ? ` ×${x.q}` : ""}</div>
+    <div class="profit ${cls(x.profit)}">${sign(x.profit)}${x.miss ? "※" : ""}</div>
+    <div class="cat">${CAT[x.cat] || esc(x.cat)}・${SUB[x.sub] || esc(x.sub)}${x.lvl ? "・熟練" + x.lvl : ""}${x.us ? "・24h販売" + x.us : ""}</div>
+    <div class="chg ${cls(x.margin)}">利益率 ${pct(x.margin, 0)}</div>
+    <div class="row3"><span class="flow">素材 ${compact(x.cost)} → 売上 ${compact(x.rev)}（成功率・手数料込み）</span></div>
+    ${chips.length ? `<div class="chips">${chips.join("")}</div>` : ""}
+  </button>`;
+}
+
+function renderCraft() {
+  const B = { now: "現在の最安", med: "7日中央値" }, M = { best: "安い方で調達", buy: "すべて購入" };
+  $("#csetsum").textContent = `成功率${cs.succ}%・${B[cs.basis]}・${M[cs.mode]}`;
+  if (!st.recipes) {
+    $("#note").innerHTML = "";
+    $("#list").innerHTML = `<div class="empty">レシピデータを読めませんでした</div>`;
+    $("#more").hidden = true;
+    return;
+  }
+  const all = craftRows();
+  const q = $("#cq").value.trim().toLowerCase(), cat = $("#ccat").value, sort = $("#csort").value;
+  const hit = (x) => !q || [x.out, ...x.lines.map((l) => l.id)].some((id) => nmId(id).toLowerCase().includes(q) || String(st.recipes.names[id] || "").toLowerCase().includes(q));
+  const key = sort === "profit" ? (x) => x.profit : sort === "volume" ? (x) => (x.profit > 0 ? x.profit * x.us : x.profit) : (x) => x.margin ?? -Infinity;
+  const r = all.filter((x) => (cs.miss || !x.miss) && (!cat || x.cat === cat) && hit(x)).sort((a, b) => key(b) - key(a));
+  const pos = all.filter((x) => !x.miss && x.profit > 0).length;
+  const hidden = cs.miss ? 0 : all.filter((x) => x.miss).length;
+  $("#note").innerHTML = `<div class="note">1回クラフトしたときの<b>期待売上（成功率・コンボ・手数料8%込み）−素材費</b>です。素材は取引所の価格で計算し、自作の方が安い素材は自作コストを使います。<br>
+    売値が分かる${all.length}件のうち、黒字は<b>${pos}件</b>。${hidden ? `NPC販売品など価格が分からない素材を使う${hidden}件は非表示です（⚙設定で表示し、内訳画面で単価を入れると計算できます）。` : "※は価格不明の素材を0として計算した参考値です。"}</div>`;
+  $("#list").innerHTML = r.length ? r.slice(0, st.limit).map(craftCard).join("") : `<div class="empty">該当するレシピがありません</div>`;
+  $("#more").hidden = r.length <= st.limit;
+}
+
+function openCraft(rid) {
+  const x = craftRows().find((y) => y.rid == rid);
+  if (!x) return;
+  const byItem = new Map(st.sum.items.map((i) => [i.k, i]));
+  $("#dstar").hidden = true;
+  $("#dtitle").textContent = nmId(x.out) + (x.q > 1 ? ` ×${x.q}` : "");
+  const nameCell = (id) => byItem.has(id)
+    ? `<button class="linkish" data-item="${id}">${esc(nmId(id))}</button>` : esc(nmId(id));
+  const custom = cs.custom || {};
+  const lines = x.lines.map((l) => {
+    const u = l.u;
+    const mine = !byItem.has(l.id) && custom[l.id] > 0;
+    const src = !u ? `<span class="src miss">取引所に無い：単価を入力 →</span>`
+      : u.how === "craft" ? `<button class="linkish src self" data-r="${u.rid}">自作の方が安い（内訳 ›）</button>`
+      : mine ? `<span class="src">自分で入力した価格</span>` : `<span class="src">購入</span>`;
+    const unitCell = (!u || mine)
+      ? `<input class="cprice" type="number" min="0" inputmode="numeric" data-id="${l.id}" value="${mine ? custom[l.id] : ""}" placeholder="単価" aria-label="${esc(nmId(l.id))}の単価" style="width:6.5em;min-height:32px;padding:4px 6px">`
+      : yen(u.cost);
+    return `<tr><td>${nameCell(l.id)}${src}</td><td>${l.n.toLocaleString()}</td><td>${unitCell}</td><td>${u ? yen(u.cost * l.n) : "—"}</td></tr>`;
+  }).join("");
+  const comboTxt = x.combo
+    ? `${Math.round(x.combo * 100)}%で「${esc(nmId(x.comboOut))}」になる（${x.comboPriced ? "相場 " + yen(x.Pc) : "相場不明のため通常品の価格で計算"}）` : "なし";
+  $("#dbody").innerHTML = `
+    <div class="cat">${CAT[x.cat] || esc(x.cat)}・${SUB[x.sub] || esc(x.sub)}${x.lvl ? "・必要熟練度 " + x.lvl : ""}${x.kind === "S" ? "・継承レシピ" : ""}</div>
+    <div class="big ${cls(x.profit)}">${sign(x.profit)}<span style="font-size:15px" class="flat"> /1回</span></div>
+    <div><span class="score ${x.profit >= 0 ? "u" : "d"}">利益率 ${pct(x.margin, 1)}</span></div>
+    ${x.miss ? `<div class="note" style="margin-top:10px">価格が分からない素材が${x.miss}種あり、その分を0として計算しています。実際の利益はこれより少なくなります。</div>` : ""}
+    <div class="grid">
+      <div class="kv"><span>素材費（1回）</span><b>${yen(x.cost)}</b></div>
+      <div class="kv"><span>期待売上（手数料後）</span><b>${yen(x.rev)}</b></div>
+      <div class="kv"><span>製品の相場</span><b>${yen(x.P)}</b></div>
+      <div class="kv"><span>製品の24h販売数</span><b>${x.us || "—"}</b></div>
+    </div>
+    <div class="h3">必要な素材</div>
+    <table class="mats">
+      <thead><tr><th>素材</th><th>個数</th><th>単価</th><th>小計</th></tr></thead>
+      <tbody>${lines}</tbody>
+      <tfoot><tr><td>合計</td><td></td><td></td><td>${yen(x.cost)}</td></tr></tfoot>
+    </table>
+    <div class="h3">計算の内訳</div>
+    <ul class="reasons">
+      <li>成功率 ${Math.round(x.s * 100)}%（設定で変更できます）</li>
+      <li>コンボ：${comboTxt}</li>
+      <li>期待売上 = 成功率 × ${x.q}個 × 相場 × (1 − 手数料8%) = ${yen(x.rev)}</li>
+      <li>利益 = ${yen(x.rev)} − 素材費 ${yen(x.cost)} = ${sign(x.profit)}</li>
+    </ul>
+    <div class="btnrow">${byItem.has(x.out) ? `<button class="btn" data-item="${x.out}">製品の相場チャートを見る</button>` : ""}</div>`;
+  $("#dbody").dataset.rid = x.rid;
+  $("#dbody").scrollTop = 0;
+  if (!$("#dlg").open) $("#dlg").showModal();
+}
+
+// 取引所に無い素材（NPC販売品・ドロップ品）の単価を入力 → 保存して計算し直す
+$("#dbody").addEventListener("change", (e) => {
+  const inp = e.target.closest("input.cprice");
+  if (!inp) return;
+  const v = Math.round(+inp.value);
+  cs.custom = Object.assign({}, cs.custom);
+  if (v > 0) cs.custom[inp.dataset.id] = v; else delete cs.custom[inp.dataset.id];
+  store.set("craft", cs);
+  const rid = $("#dbody").dataset.rid;
+  render();
+  if (rid) openCraft(+rid);
+});
+
+$("#dbody").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-item],[data-r]");
+  if (!b || !$("#dbody").contains(b)) return;
+  if (b.dataset.r) openCraft(+b.dataset.r);
+  else if (b.dataset.item) openItem(+b.dataset.item);
+});
 
 // ── 詳細 ──
 function chartSVG(p, l, h0) {
@@ -288,11 +546,26 @@ function chartSVG(p, l, h0) {
   </svg>`;
 }
 
+/** 相場の詳細画面に「このアイテムを作るレシピ／素材に使うレシピ」を出す。 */
+function craftLinks(k) {
+  if (!st.recipes) return "";
+  const rows = craftRows();
+  const made = rows.filter((x) => x.out == k);
+  const used = rows.filter((x) => x.lines.some((l) => l.id == k)).sort((a, b) => b.profit - a.profit).slice(0, 5);
+  const li = (x) => `<li><button class="linkish" data-r="${x.rid}">${esc(nmId(x.out))}</button> <span class="${cls(x.profit)}">${sign(x.profit)}</span></li>`;
+  let h = "";
+  if (made.length) h += `<div class="h3">このアイテムを作るレシピ（1回あたり利益）</div><ul class="reasons">${made.map(li).join("")}</ul>`;
+  if (used.length) h += `<div class="h3">素材に使うレシピ（利益が多い順）</div><ul class="reasons">${used.map(li).join("")}</ul>`;
+  return h;
+}
+
 async function openItem(k) {
   const it = st.sum.items.find((i) => i.k == k);
   if (!it) return;
   $("#dtitle").textContent = nm(it);
   const star = $("#dstar");
+  star.hidden = false;
+  delete $("#dbody").dataset.rid;
   const paint = () => { star.textContent = favs.has(it.k) ? "★" : "☆"; star.classList.toggle("on", favs.has(it.k)); };
   paint();
   star.onclick = () => { favs.has(it.k) ? favs.delete(it.k) : favs.add(it.k); store.set("favs", [...favs]); paint(); render(); };
@@ -316,8 +589,10 @@ async function openItem(k) {
       <div class="kv"><span>出品数の増減</span><b class="${cls(it.lt == null ? null : -it.lt)}">${pct(it.lt, 0)}</b></div>
       <div class="kv"><span>手取り（手数料8%）</span><b>${yen(it.p * 0.92)}</b></div>
     </div>
+    ${craftLinks(it.k)}
     <a class="ext" href="https://aion2.exchange/items/${it.k}" target="_blank" rel="noopener">aion2.exchange で見る ↗</a>`;
-  $("#dlg").showModal();
+  $("#dbody").scrollTop = 0;
+  if (!$("#dlg").open) $("#dlg").showModal();
   let detail;
   try { detail = await getJSON(`data/s/${st.server}/i/${it.k}.json`); }
   catch { $("#chart").innerHTML = `<div class="empty">履歴を読めませんでした</div>`; return; }
@@ -334,7 +609,11 @@ async function openItem(k) {
 async function boot() {
   st.range = store.get("range", 7);
   try {
-    [st.idx, st.names] = await Promise.all([getJSON("data/index.json"), getJSON("data/names.json").catch(() => ({}))]);
+    [st.idx, st.names, st.recipes] = await Promise.all([
+      getJSON("data/index.json"),
+      getJSON("data/names.json").catch(() => ({})),
+      getJSON("recipes.json").catch(() => null),
+    ]);
   } catch (e) {
     $("#meta").textContent = "まだデータがありません。最初の自動収集が終わるまでお待ちください。";
     $("#list").innerHTML = "";
@@ -354,7 +633,22 @@ async function boot() {
 
 $("#tabs").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) setTab(b.dataset.tab); });
 $("#server").addEventListener("change", (e) => loadServer(e.target.value));
-$("#list").addEventListener("click", (e) => { const c = e.target.closest(".card"); if (c) openItem(c.dataset.k); });
+$("#list").addEventListener("click", (e) => {
+  const c = e.target.closest(".card");
+  if (!c) return;
+  if (c.dataset.r) openCraft(+c.dataset.r); else openItem(c.dataset.k);
+});
+$("#csucc").value = cs.succ; $("#cbasis").value = cs.basis; $("#cmode").value = cs.mode; $("#cmiss").checked = !!cs.miss;
+const saveCraft = () => {
+  const v = Math.round(+$("#csucc").value);
+  cs.succ = v >= 1 && v <= 100 ? v : cs.succ;
+  cs.basis = $("#cbasis").value; cs.mode = $("#cmode").value; cs.miss = $("#cmiss").checked;
+  store.set("craft", cs);
+  st.limit = 40;
+  render();
+};
+["#csucc", "#cbasis", "#cmode", "#cmiss"].forEach((s) => $(s).addEventListener("change", saveCraft));
+["#cq", "#ccat", "#csort"].forEach((s) => $(s).addEventListener("input", () => { st.limit = 40; render(); }));
 $("#more").addEventListener("click", () => { st.limit += 40; render(); });
 ["#q", "#cat", "#sort"].forEach((s) => $(s).addEventListener("input", () => { st.limit = 40; render(); }));
 $("#dclose").addEventListener("click", () => $("#dlg").close());
