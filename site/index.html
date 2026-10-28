@@ -109,6 +109,8 @@ table.mats{width:100%;border-collapse:collapse;font-size:13.5px;font-variant-num
 .linkish{border:0;background:none;padding:0;font:inherit;color:inherit;text-align:left;cursor:pointer;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
 .h3{font-size:14px;font-weight:700;margin:16px 0 6px}
 .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11.5px;color:var(--sub);padding:4px 8px 6px}
+.legend i{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:4px;vertical-align:middle}
 .btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:10px;padding:8px 14px;font:inherit;font-size:14px;cursor:pointer}
 footer{font-size:12px;color:var(--sub);text-align:center;padding:16px}
 </style>
@@ -125,6 +127,7 @@ footer{font-size:12px;color:var(--sub);text-align:center;padding:16px}
     <button role="tab" data-tab="down">📉 下がりそう</button>
     <button role="tab" data-tab="move">⚡ 24h変動</button>
     <button role="tab" data-tab="craft">🔨 クラフト利益</button>
+    <button role="tab" data-tab="kr">🇰🇷 韓国比較</button>
     <button role="tab" data-tab="all">🔎 検索</button>
     <button role="tab" data-tab="fav">★ お気に入り</button>
   </nav>
@@ -277,6 +280,7 @@ function render() {
   $("#tools").hidden = st.tab !== "all";
   $("#ctools").hidden = st.tab !== "craft";
   if (st.tab === "craft") return renderCraft();
+  if (st.tab === "kr") return renderKR();
   const bt = st.sum.backtest || {};
   let note = NOTES[st.tab] || "";
   if ((st.tab === "up" || st.tab === "down") && bt.hit_rate != null) {
@@ -504,11 +508,146 @@ $("#dbody").addEventListener("change", (e) => {
 });
 
 $("#dbody").addEventListener("click", (e) => {
-  const b = e.target.closest("[data-item],[data-r]");
+  const b = e.target.closest("[data-item],[data-r],[data-kr]");
   if (!b || !$("#dbody").contains(b)) return;
   if (b.dataset.r) openCraft(+b.dataset.r);
+  else if (b.dataset.kr) openKR(+b.dataset.kr);
   else if (b.dataset.item) openItem(+b.dataset.item);
 });
+
+// ── 韓国比較 ──
+const DIR = {
+  up: ["上がりそう", "u"], down: ["下がりそう", "d"], peak: ["天井圏・売り時", "d"], flat: ["横ばい", ""],
+};
+const WEEK = 7 * 864e5;
+const glWeekNow = () => st.kr ? (Date.now() - new Date(st.kr.launch.GL + "T00:00:00Z")) / WEEK : 0;
+
+/** グローバル版の現在値：自分のサーバーの最新値（無ければ北米・欧州の参考値）。 */
+function krNow(x) {
+  const it = st.sum && st.sum.items.find((i) => i.k == x.key);
+  if (it && it.p > 0) return { v: it.p, label: "このサーバー" };
+  const g = x.gl_naeu[x.gl_naeu.length - 1];
+  return g ? { v: g[1], label: "北米・欧州（" + st.kr.global_snapshot.slice(5, 10).replace("-", "/") + "）" } : null;
+}
+function krEarly(x) {
+  const v = x.krq.filter((p) => p[0] <= 12 && p[1]).map((p) => p[1]);
+  return v.length ? [Math.min(...v), Math.max(...v)] : null;
+}
+function krLate(x) {
+  const v = x.krw.map((p) => p[1]).concat(x.krq.filter((p) => p[0] > 12).map((p) => p[1]));
+  return v.length ? [Math.min(...v), Math.max(...v)] : null;
+}
+const rng = (r) => !r ? "—" : r[0] === r[1] ? compact(r[0]) : compact(r[0]) + "〜" + compact(r[1]);
+const krName = (x) => (st.names[x.key] && st.names[x.key][0]) || x.ja;
+
+function krCard(x) {
+  const f = x.fc || {}, d = DIR[f.dir] || ["—", ""], now = krNow(x);
+  return `<button class="card" data-krcard="${x.key}">
+    <div class="name">${esc(krName(x))}</div>
+    <div class="price">${now ? compact(now.v) : "—"}</div>
+    <div class="cat">${esc(x.kr)}</div>
+    <div class="chg flat">${now ? esc(now.label) : ""}</div>
+    <div class="row3"><span class="score ${d[1]}" style="${d[1] ? "" : "background:var(--chip);color:var(--sub)"}">${d[0]}</span><span class="why">${esc(f.head || "")}</span></div>
+    <div class="chips"><span class="chip">韓国1〜12週目 ${rng(krEarly(x))}</span><span class="chip">韓国18週目〜 ${rng(krLate(x))}</span><span class="chip">${esc(f.when || "")}</span><span class="chip">確度 ${esc(f.conf || "—")}</span></div>
+  </button>`;
+}
+
+function renderKR() {
+  $("#more").hidden = true;
+  if (!st.kr) { $("#note").innerHTML = ""; $("#list").innerHTML = `<div class="empty">韓国版のデータを読めませんでした</div>`; return; }
+  const k = st.kr, w = glWeekNow();
+  $("#note").innerHTML = `<div class="note">
+    グローバル版は発売から<b>${w.toFixed(1)}週目</b>。韓国版の同じ時期以降の相場と、韓国で起きた出来事を当てはめた見立てです（${k.forecast_date.replace(/-/g, "/")}時点）。
+    根拠に書いたグローバル版の価格は北米・欧州6サーバーの10/19時点の値で、このサーバーの値とは違うことがあります。
+    <details style="margin-top:6px"><summary style="cursor:pointer;color:var(--ink);font-weight:600">全体の見通しを読む</summary>
+    <ul class="reasons">${k.outlook.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
+    <div class="h3">韓国版の主な出来事</div><ul class="reasons">${k.events.KR.map((e) => `<li>${e[0].toFixed(0)}週目（${e[1]}）：${esc(e[2])}</li>`).join("")}</ul>
+    <div class="h3">グローバル版の出来事・予定</div><ul class="reasons">${k.events.GL.map((e) => `<li>${e[0].toFixed(1)}週目（${e[1]}）：${esc(e[2])}</li>`).join("")}</ul>
+    </details></div>`;
+  const order = { peak: 0, up: 1, down: 2, flat: 3 }, conf = { 高: 0, 中: 1, 低: 2 };
+  const rows = [...k.items].sort((a, b) => (order[a.fc?.dir] ?? 9) - (order[b.fc?.dir] ?? 9) || (conf[a.fc?.conf] ?? 9) - (conf[b.fc?.conf] ?? 9));
+  $("#list").innerHTML = rows.map(krCard).join("");
+}
+
+function krChartSVG(x, live) {
+  const W = 380, H = 240, padL = 46, padR = 8, padT = 12, padB = 30;
+  const series = [];
+  if (x.krw.length) series.push({ pts: x.krw, color: "var(--warn)", w: 2 });
+  if (x.gl_naeu.length) series.push({ pts: x.gl_naeu, color: "var(--sub)", w: 1.6, dash: "4 3" });
+  if (live && live.length) series.push({ pts: live, color: "var(--accent)", w: 2.2 });
+  const dots = x.krq.filter((p) => p[1]).map((p) => [p[0], p[1]]);
+  const all = series.flatMap((s) => s.pts).concat(dots).filter((p) => p[1] > 0);
+  if (all.length < 2) return `<div class="empty">比較できるデータがありません</div>`;
+  const xmax = Math.max(48, ...all.map((p) => p[0])) + 1;
+  let lo = Math.log10(Math.min(...all.map((p) => p[1]))), hi = Math.log10(Math.max(...all.map((p) => p[1])));
+  if (hi - lo < 0.3) { lo -= 0.15; hi += 0.15; }
+  const pad = (hi - lo) * 0.06; lo -= pad; hi += pad;
+  const X = (w) => padL + (w / xmax) * (W - padL - padR);
+  const Y = (v) => padT + (1 - (Math.log10(v) - lo) / (hi - lo)) * (H - padT - padB);
+  const path = (pts) => pts.filter((p) => p[1] > 0).map((p, i) => (i ? "L" : "M") + X(p[0]).toFixed(1) + "," + Y(p[1]).toFixed(1)).join("");
+  const ticks = [];
+  for (let e = Math.floor(lo); e <= Math.ceil(hi); e++) for (const m of [1, 2, 5]) { const v = m * 10 ** e; if (Math.log10(v) >= lo && Math.log10(v) <= hi) ticks.push(v); }
+  const yt = ticks.length > 6 ? ticks.filter((_, i) => i % 2 === 0) : ticks;
+  const now = glWeekNow();
+  const ev = st.kr.events.KR.map((e, i) => `<line x1="${X(e[0])}" x2="${X(e[0])}" y1="${padT}" y2="${H - padB}" stroke="var(--warn)" stroke-opacity=".35" stroke-dasharray="2 3"/><text x="${X(e[0])}" y="${padT + 9}" font-size="9" fill="var(--warn)" text-anchor="middle">${i + 1}</text>`).join("");
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="発売からの週数で見た韓国版とグローバル版の価格">
+    ${yt.map((v) => `<line x1="${padL}" x2="${W - padR}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)"/><text x="${padL - 5}" y="${Y(v) + 4}" font-size="11" fill="var(--sub)" text-anchor="end">${compact(v)}</text>`).join("")}
+    ${[0, 12, 24, 36, 48].filter((w) => w < xmax).map((w) => `<text x="${X(w)}" y="${H - 12}" font-size="11" fill="var(--sub)" text-anchor="middle">${w}週</text>`).join("")}
+    ${ev}
+    <line x1="${X(now)}" x2="${X(now)}" y1="${padT}" y2="${H - padB}" stroke="var(--accent)" stroke-width="1.5"/>
+    <text x="${X(now) + 3}" y="${H - padB - 4}" font-size="10" fill="var(--accent)">今</text>
+    ${series.map((s) => `<path d="${path(s.pts)}" fill="none" stroke="${s.color}" stroke-width="${s.w}" ${s.dash ? `stroke-dasharray="${s.dash}"` : ""} stroke-linejoin="round"/>`).join("")}
+    ${dots.map((p) => `<circle cx="${X(p[0]).toFixed(1)}" cy="${Y(p[1]).toFixed(1)}" r="3.6" fill="var(--panel)" stroke="var(--warn)" stroke-width="2"/>`).join("")}
+  </svg>
+  <div class="legend"><span><i style="background:var(--accent)"></i>このサーバー</span><span><i style="background:var(--sub)"></i>北米・欧州</span><span><i style="background:var(--warn)"></i>韓国（線＝週平均・○＝掲示板の価格）</span><span>縦点線の番号＝韓国の出来事</span></div>`;
+}
+
+async function openKR(key) {
+  const x = st.kr && st.kr.items.find((i) => i.key == key);
+  if (!x) return;
+  const f = x.fc || {}, d = DIR[f.dir] || ["—", ""], now = krNow(x);
+  $("#dstar").hidden = true;
+  delete $("#dbody").dataset.rid;
+  $("#dtitle").textContent = krName(x) + " ・韓国比較";
+  const inSum = st.sum && st.sum.items.some((i) => i.k == key);
+  $("#dbody").innerHTML = `
+    <div class="cat">${esc(x.kr)}・${esc(x.en)}</div>
+    <div class="big">${now ? yen(now.v) : "—"} <span class="flat" style="font-size:13px">${now ? esc(now.label) : ""}</span></div>
+    <div><span class="score ${d[1]}" style="${d[1] ? "" : "background:var(--chip);color:var(--sub)"}">${d[0]}（${esc(f.when || "")}・確度${esc(f.conf || "—")}）</span></div>
+    <p style="margin:10px 0 0;font-weight:600">${esc(f.head || "")}</p>
+    <ul class="reasons">${(f.why || []).map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
+    <div class="chart" id="krchart"><div class="empty">読み込み中…</div></div>
+    <div class="grid">
+      <div class="kv"><span>韓国 1〜12週目</span><b>${rng(krEarly(x))}</b></div>
+      <div class="kv"><span>韓国 18週目以降</span><b>${rng(krLate(x))}</b></div>
+      <div class="kv"><span>韓国の最新（${x.krw.length ? x.krw[x.krw.length - 1][0].toFixed(0) + "週目" : "—"}）</span><b>${x.krw.length ? compact(x.krw[x.krw.length - 1][1]) : "—"}</b></div>
+      <div class="kv"><span>グローバルの週数</span><b>${glWeekNow().toFixed(1)}週目</b></div>
+    </div>
+    ${x.krq.length ? `<div class="h3">韓国の掲示板に残っている価格</div><ul class="reasons">${x.krq.map((p) => `<li>${p[0].toFixed(0)}週目：${p[1] ? compact(p[1]) : "—"}（${esc(p[3])}）<a class="ext" href="${esc(p[2])}" target="_blank" rel="noopener">出典</a></li>`).join("")}</ul>` : ""}
+    <div class="h3">韓国版の出来事（グラフの番号）</div>
+    <ol class="reasons">${st.kr.events.KR.map((e) => `<li>${e[0].toFixed(0)}週目：${esc(e[2])}</li>`).join("")}</ol>
+    <p class="cat" style="white-space:normal">韓国の週平均は aeid.gg、掲示板の価格は DCInside・Inven の書き込み（shizukaziye/aion2-market-history の書き起こし）。予測は過去の似た状況からの見立てで、外れることがあります。</p>
+    ${inSum ? `<div class="btnrow"><button class="btn" data-item="${key}">このサーバーの相場チャートを見る</button></div>` : ""}`;
+  $("#dbody").scrollTop = 0;
+  if (!$("#dlg").open) $("#dlg").showModal();
+  let live = [];
+  if (inSum) {
+    try {
+      const h = await getJSON(`data/s/${st.server}/i/${key}.json`);
+      const t0 = new Date(st.kr.launch.GL + "T00:00:00Z").getTime(), byDay = new Map();
+      h.p.forEach((v, i) => {
+        if (v == null) return;
+        const w = ((h.h0 + i) * 3600e3 - t0) / WEEK;
+        if (w < -1) return;
+        const dkey = Math.floor(w * 7);
+        (byDay.get(dkey) || byDay.set(dkey, []).get(dkey)).push(v);
+      });
+      live = [...byDay.entries()].sort((a, b) => a[0] - b[0]).map(([dd, v]) => { v.sort((a, b) => a - b); return [dd / 7, v[v.length >> 1]]; });
+    } catch {}
+  }
+  const c = $("#krchart");
+  if (c) c.innerHTML = krChartSVG(x, live);
+}
 
 // ── 詳細 ──
 function chartSVG(p, l, h0) {
@@ -589,6 +728,7 @@ async function openItem(k) {
       <div class="kv"><span>出品数の増減</span><b class="${cls(it.lt == null ? null : -it.lt)}">${pct(it.lt, 0)}</b></div>
       <div class="kv"><span>手取り（手数料8%）</span><b>${yen(it.p * 0.92)}</b></div>
     </div>
+    ${st.kr && st.kr.items.some((x) => x.key == it.k) ? `<div class="btnrow"><button class="btn" data-kr="${it.k}">🇰🇷 韓国版の推移と予測を見る</button></div>` : ""}
     ${craftLinks(it.k)}
     <a class="ext" href="https://aion2.exchange/items/${it.k}" target="_blank" rel="noopener">aion2.exchange で見る ↗</a>`;
   $("#dbody").scrollTop = 0;
@@ -614,6 +754,7 @@ async function boot() {
       getJSON("data/names.json").catch(() => ({})),
       getJSON("recipes.json").catch(() => null),
     ]);
+    st.kr = await getJSON("kr.json").catch(() => null);
   } catch (e) {
     $("#meta").textContent = "まだデータがありません。最初の自動収集が終わるまでお待ちください。";
     $("#list").innerHTML = "";
@@ -636,7 +777,9 @@ $("#server").addEventListener("change", (e) => loadServer(e.target.value));
 $("#list").addEventListener("click", (e) => {
   const c = e.target.closest(".card");
   if (!c) return;
-  if (c.dataset.r) openCraft(+c.dataset.r); else openItem(c.dataset.k);
+  if (c.dataset.r) openCraft(+c.dataset.r);
+  else if (c.dataset.krcard) openKR(+c.dataset.krcard);
+  else openItem(c.dataset.k);
 });
 $("#csucc").value = cs.succ; $("#cbasis").value = cs.basis; $("#cmode").value = cs.mode; $("#cmiss").checked = !!cs.miss;
 const saveCraft = () => {

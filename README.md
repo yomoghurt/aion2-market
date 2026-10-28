@@ -54,6 +54,17 @@ aion2.exchange のAPIはブラウザから直接読めない（CORS非対応）�
 - レシピは `site/recipes.json`（出典は NOTICE.md）。ゲームの大型アップデートでレシピが変わったら
   `tools/build_recipes.py` で作り直してください。コンボでしか出ない品のレシピは、元レシピのコンボとして計算します
 
+## 韓国比較と予測
+
+「🇰🇷 韓国比較」タブで、韓国版（2025/11/19発売）とグローバル版（2026/10/5発売）を **発売からの週数** でそろえて比べ、
+品目ごとの見立て（上がりそう／天井圏／下がりそう／横ばい、期間、確度、根拠）を表示します。
+
+- 韓国の週平均：aeid.gg（韓国ワールド取引所、発売18週目以降のみ）
+- 韓国の発売直後（1〜12週目）：DCInside・Inven の書き込みにある価格（出典リンク付き。系統的なデータは存在しない）
+- グローバルの参考値：aion2.exchange の北米・欧州6サーバー（10/19時点）。自分のサーバーの値は毎時の収集データ
+- 元データは [shizukaziye/aion2-market-history](https://github.com/shizukaziye/aion2-market-history) の data/ 。
+  `tools/kr_reference.py <dataディレクトリ> site/kr.json` で作り直し、予測は同スクリプト内の FORECAST / OUTLOOK を書き換えて更新
+
 ## 設定
 
 - 対象リージョン：リポジトリの Variables に `REGIONS` を設定（既定 `AS`）。カンマ区切りで複数可（例 `AS,NAW`）
