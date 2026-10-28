@@ -347,15 +347,40 @@ def backfill(base: str, sid: int, key: str, hist: History, days: int):
             hist.put(key, h, float(price), pt.get("listings"), keep_lower=True)
 
 
-def fetch_names(keys: list[str], names: dict, limit: int) -> int:
-    got = 0
-    for k in [k for k in keys if k not in names][:limit]:
+def _is_japanese(s: str) -> bool:
+    return any("぀" <= ch <= "ヿ" for ch in s or "")  # ひらがな・カタカナを含むか
+
+
+def _name_url():
+    """日本語名を返すNC公式のアイテムAPIを、候補から1件試して見つける。見つからなければ None。
+    2026/10時点、グローバル版向けの /ja-jp/api/gameconst/item は404、ロケール無しは韓国語のみを返す。"""
+    probe = "516530001"  # 突破石（ユニーク）
+    for url in (f"{NC}/ja-jp/api/gameconst/item", f"{NC}/api/gameconst/item"):
         try:
-            j = get_json(f"{NC}/ja-jp/api/gameconst/item", {"lang": "ja-JP", "id": k, "enchantLevel": 0}, retries=2)
+            j = get_json(url, {"lang": "ja-JP", "region": "as", "id": probe, "enchantLevel": 0}, retries=1)
+        except Exception:
+            continue
+        if j and _is_japanese(j.get("name")):
+            return url
+    return None
+
+
+def fetch_names(keys: list[str], names: dict, limit: int) -> int:
+    todo = [k for k in keys if k not in names][:limit]
+    if not todo:
+        return 0
+    url = _name_url()
+    if not url:
+        print("日本語名：NC公式のアイテムAPIが日本語を返さないため今回は取得しない", file=sys.stderr)
+        return 0
+    got = 0
+    for k in todo:
+        try:
+            j = get_json(url, {"lang": "ja-JP", "region": "as", "id": k, "enchantLevel": 0}, retries=1)
         except Exception as e:  # 名前は飾り。取れなくても英名で表示する
             print(f"name {k}: {e}", file=sys.stderr)
             continue
-        if j and j.get("id") and j.get("name"):
+        if j and j.get("id") and _is_japanese(j.get("name")):
             names[k] = [j["name"], j.get("icon") or ""]
             got += 1
     return got
@@ -478,6 +503,12 @@ def main() -> int:
         return 1
 
     names = load_prev(a.prev, "data/names.json") or {}
+    # 韓国比較用に訳した日本語名（site/kr.json）を下地にする。公式から取れた名前があればそちらを優先
+    try:
+        for it in json.loads((out / "kr.json").read_text(encoding="utf-8")).get("items") or []:
+            names.setdefault(str(it["key"]), [it["ja"], ""])
+    except (OSError, json.JSONDecodeError, KeyError):
+        pass
     budget = {"backfill": BACKFILL_MAX}
     done, errors = [], []
     for s in servers:
