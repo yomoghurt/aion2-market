@@ -36,7 +36,7 @@ DELAY = 0.25          # リクエスト間隔（秒）。相手は個人運営�
 PAGE = 200            # /api/items の limit 上限
 KEEP_DAYS = 30        # 保持する履歴
 BACKFILL_DAYS = 14    # 履歴が薄いアイテムを過去分で埋める日数
-BACKFILL_MAX = 1500   # 1回の実行で過去分を取りに行く最大件数（残りは次回）
+BACKFILL_MAX = 400    # 1回の実行で過去分を取りに行く最大件数（残りは次回）
 NAMES_MAX = 1000      # 1回の実行で日本語名を取りに行く最大件数
 DATA_VERSION = 1
 
