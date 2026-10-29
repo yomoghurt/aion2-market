@@ -501,7 +501,8 @@ def main() -> int:
     if a.extra_servers:  # リージョン指定に加えて個別に追加するサーバー（例: EUのネザカン 11302）
         extra = {int(x) for x in a.extra_servers.split(",") if x.strip()}
         have = {s.get("server_id") for s in servers}
-        servers += [s for s in srv if s.get("server_id") in extra and s.get("server_id") not in have]
+        # 先頭に置く：過去分の取り込み枠（BACKFILL_MAX）を、後から追加したサーバーに優先して回す
+        servers = [s for s in srv if s.get("server_id") in extra and s.get("server_id") not in have] + servers
     servers = [{k: s.get(k) for k in ("server_id", "name", "region", "region_name", "faction")} for s in servers]
     if not servers:
         print(f"対象サーバーなし。取得できたリージョン: {sorted({s.get('region') for s in srv})}", file=sys.stderr)
