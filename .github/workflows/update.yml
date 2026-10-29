@@ -33,9 +33,11 @@ jobs:
           site="https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}"
           mkdir -p _site
           cp -r site/* _site/
-          python collector/collect.py --out _site --prev "$site" --regions "${REGIONS:-AS}"
+          python collector/collect.py --out _site --prev "$site" --regions "${REGIONS:-AS}" --extra-servers "${EXTRA_SERVERS:-11302}"
         env:
           REGIONS: ${{ vars.REGIONS }}
+          # 11302 = EUのネザカン（天族）
+          EXTRA_SERVERS: ${{ vars.EXTRA_SERVERS }}
 
       - uses: actions/configure-pages@v5
 

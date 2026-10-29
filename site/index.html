@@ -198,6 +198,19 @@ const store = {
 let favs = new Set(store.get("favs", []));
 
 const FACTION = { Elyos: "天族", Asmodian: "魔族" };
+// サーバー名の公式日本語表記（NC公式サイト gameinfo/servers の ja-JP）
+const SERVER_JA = { Siel: "シエル", Nezekan: "ネザカン", Vaizel: "バイゼル", Kaisinel: "カイジネル", Yustiel: "ユスティエル", Ariel: "アリエル",
+  Fregion: "フレギオン", Meslamtaeda: "ミスランテイダ", Hithanya: "ヒタニエ", Nania: "ナニア", Israphel: "イズラフェル", Zikel: "ジケル",
+  Triniel: "トリニエル", Lumiel: "ルミエル", Marchutan: "マルクタン", Azphel: "アスフェル", Ereshkigal: "エレスギガル", Beritra: "ベリトラ",
+  Nemon: "ネモン", Hadala: "ハダル" };
+// 取引所のカテゴリ名
+const CAT_JA = { "Accessory skins": "アクセサリー外見", "Amplify stones": "突破石", "Armor skins": "防具外見", Artwork: "芸術品", Boots: "靴",
+  Bows: "弓", Breastplates: "胴", Cloaks: "マント", "Crafting materials": "製作材料", Daggers: "短剣", Earrings: "イヤリング", Food: "料理",
+  "Gathered resources": "採集物", Gloves: "手袋", Greatswords: "大剣", Greaves: "脚", Guards: "ガーダー", Helms: "頭", Longswords: "長剣",
+  Maces: "メイス", "Manastones & soulstones": "魔石・霊石", Necklaces: "ネックレス", Orbs: "オーブ", Other: "その他", "Other items": "その他",
+  Pauldrons: "肩", "Potions & serums": "ポーション・セラム", Rings: "指輪", Scrolls: "巻物", "Sealed wings": "封印された翼", Spellbooks: "魔導書",
+  Staves: "法杖", "Transformation candy": "変身キャンディ", Wings: "翼", Weapons: "武器", Armor: "防具", Materials: "素材", Consumables: "消耗品" };
+const catJa = (c) => CAT_JA[c] || c || "";
 const yen = (n) => n == null ? "—" : Math.round(n).toLocaleString("ja-JP");
 const compact = (n) => {
   if (n == null) return "—";
@@ -208,7 +221,29 @@ const compact = (n) => {
 const pct = (x, d = 1) => x == null ? "—" : (x > 0 ? "+" : x < 0 ? "−" : "±") + Math.abs(x * 100).toFixed(d) + "%";
 const cls = (x) => x == null || Math.abs(x) < 0.005 ? "flat" : x > 0 ? "up" : "down";
 const arrow = (x) => x == null || Math.abs(x) < 0.005 ? "" : x > 0 ? "▲" : "▼";
-const nm = (it) => (st.names[it.k] && st.names[it.k][0]) || it.en || ("#" + it.k);
+// 日本語名：公式から取れた名前（names.json）→ 辞書のID指定（公式名）→ 英語名から辞書で組み立て → 英語名のまま
+function dictJa(en) {
+  const D = st.dict;
+  if (!D || !en) return null;
+  if (D.names[en]) return D.names[en];
+  let m = en.match(/^(.*) \(Bound\)$/); // 帰属品：「名前（帰属）」
+  if (m) { const b = dictJa(m[1]); return b ? b + D.patterns.Bound : null; }
+  m = en.match(/^(.*) \(Skin: (.+)\)$/); // 外見：「名前(部位)」
+  if (m) {
+    const a = D.names[m[1]] || D.prefixes[m[1]], s = D.slots[m[2]] || D.slots[m[2].replace(/s$/, "")];
+    return a && s ? `${a}(${s})` : null;
+  }
+  m = en.match(/^(Artwork|Colossus): (.+)$/); // 芸術品：「芸術品：名前」
+  if (m) { const b = D.names[m[2]]; return b ? D.patterns[m[1]] + b : null; }
+  const sp = en.lastIndexOf(" "); // 装備：「接頭語の部位」
+  if (sp > 0) {
+    const p = D.prefixes[en.slice(0, sp)], s = D.slots[en.slice(sp + 1)];
+    if (p && s) return p + "の" + s;
+  }
+  return null;
+}
+const jaName = (id, en) => (st.names[id] && st.names[id][0]) || (st.dict && st.dict.ids[id]) || dictJa(en);
+const nm = (it) => jaName(it.k, it.en) || it.en || ("#" + it.k);
 const ago = (iso) => {
   if (!iso) return "—";
   const m = Math.round((Date.now() - new Date(iso)) / 60000);
@@ -240,7 +275,7 @@ function card(it) {
   return `<button class="card" data-k="${it.k}">
     <div class="name">${favs.has(it.k) ? "★ " : ""}${esc(nm(it))}</div>
     <div class="price">${compact(it.p)}</div>
-    <div class="cat">${esc(it.cat || "")}${it.l != null ? "・出品" + it.l : ""}${it.us ? "・24h販売" + it.us : ""}</div>
+    <div class="cat">${esc(catJa(it.cat))}${it.l != null ? "・出品" + it.l : ""}${it.us ? "・24h販売" + it.us : ""}</div>
     <div class="chg ${cls(it.ch24)}">${arrow(it.ch24)}${pct(it.ch24)} <span class="flat">24h</span></div>
     <div class="row3">${badge}<span class="why">${esc((it.why || [])[0] || "")}</span>${sparkSVG(it.sp)}</div>
     ${chips ? `<div class="chips">${chips}</div>` : ""}
@@ -313,7 +348,7 @@ async function loadServer(sid) {
   const s = (st.idx.servers || []).find((x) => x.server_id == sid) || {};
   $("#meta").innerHTML = `相場：<b>${ago(st.sum.captured_at)}</b><span>・${st.sum.items.length}品目</span>${s.stale ? '<span class="stale">・取得失敗のため前回データ</span>' : ""}`;
   const cats = [...new Set(st.sum.items.map((i) => i.cat).filter(Boolean))].sort();
-  $("#cat").innerHTML = `<option value="">すべてのカテゴリ</option>` + cats.map((c) => `<option>${esc(c)}</option>`).join("");
+  $("#cat").innerHTML = `<option value="">すべてのカテゴリ</option>` + cats.map((c) => `<option value="${esc(c)}">${esc(catJa(c))}</option>`).join("");
   render();
 }
 
@@ -324,7 +359,7 @@ const FEE = 0.08; // 取引所の販売手数料
 const cs = Object.assign({ succ: 95, basis: "now", mode: "best", miss: false, custom: {} }, store.get("craft", {}));
 let craftCache = null;
 
-const nmId = (id) => (st.names[id] && st.names[id][0]) || (st.recipes && st.recipes.names[id]) || ("#" + id);
+const nmId = (id) => jaName(id, st.recipes && st.recipes.names[id]) || (st.recipes && st.recipes.names[id]) || ("#" + id);
 const sign = (n) => (n >= 0 ? "+" : "−") + compact(Math.abs(n));
 
 function factionLetter() {
@@ -538,7 +573,7 @@ function krLate(x) {
   return v.length ? [Math.min(...v), Math.max(...v)] : null;
 }
 const rng = (r) => !r ? "—" : r[0] === r[1] ? compact(r[0]) : compact(r[0]) + "〜" + compact(r[1]);
-const krName = (x) => (st.names[x.key] && st.names[x.key][0]) || x.ja;
+const krName = (x) => jaName(x.key, x.en) || x.ja;
 
 function krCard(x) {
   const f = x.fc || {}, d = DIR[f.dir] || ["—", ""], now = krNow(x);
@@ -712,7 +747,7 @@ async function openItem(k) {
   const verdict = sc == null ? "履歴が少なく判定できません" :
     Math.abs(sc) < st.sum.thresh ? "はっきりした傾向なし" : (sc > 0 ? "上がりそう" : "下がりそう") + `（確信度 ${Math.round(Math.abs(sc) * 100)}）`;
   $("#dbody").innerHTML = `
-    <div class="cat">${esc(it.cat || "")}${it.en && st.names[it.k] ? "・" + esc(it.en) : ""}</div>
+    <div class="cat">${esc(catJa(it.cat))}${it.en && jaName(it.k, it.en) ? "・" + esc(it.en) : ""}</div>
     <div class="big">${yen(it.p)} <span class="chg ${cls(it.ch24)}" style="font-size:15px">${arrow(it.ch24)}${pct(it.ch24)}</span></div>
     <div><span class="score ${sc > 0 ? "u" : "d"}" style="${sc == null || Math.abs(sc) < st.sum.thresh ? "background:var(--chip);color:var(--sub)" : ""}">${verdict}</span></div>
     ${(it.why || []).length ? `<ul class="reasons">${it.why.map((w) => `<li>${esc(w)}</li>`).join("")}</ul>` : ""}
@@ -753,6 +788,7 @@ async function boot() {
       getJSON("data/index.json"),
       getJSON("data/names.json").catch(() => ({})),
       getJSON("recipes.json").catch(() => null),
+      getJSON("ja_dict.json").then((d) => { st.dict = d; }).catch(() => { st.dict = null; }),
     ]);
     st.kr = await getJSON("kr.json").catch(() => null);
   } catch (e) {
@@ -761,7 +797,11 @@ async function boot() {
     return;
   }
   const sv = st.idx.servers || [];
-  $("#server").innerHTML = sv.map((s) => `<option value="${s.server_id}">${esc(s.name)}・${FACTION[s.faction] || esc(s.faction || "")}</option>`).join("");
+  const REGION = { AS: "アジア", EU: "ヨーロッパ", NAE: "北米東部", NAW: "北米西部", LA: "南米" };
+  const label = (s) => `${esc(SERVER_JA[s.name] || s.name)}・${FACTION[s.faction] || esc(s.faction || "")}`;
+  const groups = [...new Set(sv.map((s) => s.region))];
+  $("#server").innerHTML = groups.map((g) => `<optgroup label="${esc(REGION[g] || g)}">${sv.filter((s) => s.region === g)
+    .map((s) => `<option value="${s.server_id}">${label(s)}${g !== "AS" ? `（${esc(REGION[g] || g)}）` : ""}</option>`).join("")}</optgroup>`).join("");
   const saved = store.get("server", null);
   const sid = sv.some((s) => s.server_id == saved) ? saved : sv[0] && sv[0].server_id;
   if (sid == null) { $("#meta").textContent = "対象サーバーがありません"; return; }

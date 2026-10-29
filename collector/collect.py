@@ -482,6 +482,7 @@ def main() -> int:
     ap.add_argument("--prev", help="公開中サイトのURL（前回の履歴を読み戻す）")
     ap.add_argument("--regions", default="AS", help="対象リージョンコード（カンマ区切り）")
     ap.add_argument("--servers", help="サーバーIDを直接指定（カンマ区切り）")
+    ap.add_argument("--extra-servers", default="", help="リージョンに加えて収集するサーバーID（カンマ区切り）")
     ap.add_argument("--delay", type=float, default=DELAY)
     a = ap.parse_args()
     DELAY = a.delay
@@ -497,6 +498,10 @@ def main() -> int:
     else:
         regions = {r.strip().upper() for r in a.regions.split(",")}
         servers = [s for s in srv if (s.get("region") or "").upper() in regions]
+    if a.extra_servers:  # リージョン指定に加えて個別に追加するサーバー（例: EUのネザカン 11302）
+        extra = {int(x) for x in a.extra_servers.split(",") if x.strip()}
+        have = {s.get("server_id") for s in servers}
+        servers += [s for s in srv if s.get("server_id") in extra and s.get("server_id") not in have]
     servers = [{k: s.get(k) for k in ("server_id", "name", "region", "region_name", "faction")} for s in servers]
     if not servers:
         print(f"対象サーバーなし。取得できたリージョン: {sorted({s.get('region') for s in srv})}", file=sys.stderr)
